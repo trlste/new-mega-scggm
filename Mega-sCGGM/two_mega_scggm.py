@@ -12,15 +12,18 @@ from txt_to_dict import txt_to_dict
 from sparse_to_txt import sparse_to_txt
 
 def two_mega_scggm(
-        Y, X, lambdaV, lambdaF, lambdaGamma, lambdaPsi, r,
+        Y, X, Y_sum, lambdaV, lambdaF, lambdaGamma, lambdaPsi, r,
         verbose=False, max_iters=50, sigma=1e-4, tol=1e-2,
         num_blocks_V=-1, num_blocks_F=-1, num_blocks_Gamma=-1,
         num_blocks_Psi=-1, memory_usage=32000,
         threads=16, refit=False, V0=None, F0=None, Gamma0=None,Psi0=None):
     """
     Args:
-      Y: output data matrix (n samples x q dimensions target variables)
-      X: input data matrix (n samples x p dimensions covariate variables)
+      (mscggm)Y: output data matrix (n samples x q dimensions target variables)
+      (mscggm)X: input data matrix (n samples x p dimensions covariate variables)
+      X:n*(2p+r)
+      Y:(n*2q) with missing inputs
+      
       lambdaV: regularization for V
       lambdaF: regularization for F
       lambdaGamma: regularization for Gamma
@@ -81,20 +84,39 @@ def two_mega_scggm(
         P0_str = "-T \"%s\" " % (P0file)
 
     
-    #n_y=1, q_prime=2q
-    #n_x=1, p_prime=2p+r
+    #n_y=n, q_prime=2q
+    #n_x=n, p_prime=2p+r
     (n_y, q_prime) = Y.shape 
     (n_x, p_prime) = X.shape
 
-    #reshapes Y (a vector of size 1 x 2q) to a
-    #matrix of size 2 x q
+    #2n*q
     Y=Y.reshape(2,-1)
-    # drops the r group-level inputs and reshapes X
-    # to a matrix of 2 x p
-    X_r_dropped=X[:2*p].reshape(2,-1)
 
     q=q_prime/2
     p=(p_prime-r)/2
+    #n*2p->2n*p
+    X_r_dropped=X[:,:2*p].reshape(2*n_x,-1)
+    X_r_dropped_p=X_r_dropped[::2,:]
+    X_r_dropped_m=X_r_dropped[1::2,:]
+    #n*r
+    X_r=X[:,2*p:]
+    #n*p+r
+    X_sum=np.concatenate((X_r_dropped_m+X_r_dropped_p,X_r),axis=1)
+    #n*p
+    X_diff=np.subtract(X_r_dropped_p, X_r_dropped_m)
+
+    # calculates ys and xs
+    
+    #means 2n*q
+    Y_means=np.repeat(.5*Y_sum, repeats=2, axis=0)
+    Y_complete= np.where(np.isnan(Y),Y_means,Y)
+   
+    Y_p=Y[::2,:]
+    Y_m=Y[1::2,:]
+    Y_diff=np.subtract(Y_p,Y_m)
+
+   
+   
 
     Y_sum_file = "Y_sum-dummy-%i.txt" % (dummy)
     X_sum_file = "X_sum-dummy-%i.txt" % (dummy)
@@ -110,14 +132,7 @@ def two_mega_scggm(
     stats_sum_file = "stats_sum-dummy-%i.txt" % (dummy)
     stats_diff_file = "stats_diff-dummy-%i.txt" % (dummy)
     
-    # calculates ys and xs
-    Y_sum=np.sum(Y,axis=0)
-    # concats the r group-level inputs with xs
-    X_sum=np.concatenate((np.sum(X_r_dropped,axis=0),X[2*p:]))
-    
-    # calculates yd and xd
-    Y_diff=np.subtract(Y[0,:],Y[1,:])
-    X_diff=np.subtract(X_r_dropped[0,:],X_r_dropped[1,:])
+   
 
 
     np.savetxt(Y_sum_file, Y_sum, fmt="%.10f", delimiter=" ")
@@ -134,7 +149,7 @@ def two_mega_scggm(
         mega_str, V0_str, F0_str)
     command_str_sum = "./mega_scggm %s   %i %i %i %i %s %s   %s %s %s" % (
         option_str,
-        1, q, 1, p+r, Y_sum_file, X_sum_file,
+        n_y, q, n_x, p+r, Y_sum_file, X_sum_file,
         Vfile, Ffile, stats_sum_file)
     print(command_str_sum)
 
@@ -147,7 +162,7 @@ def two_mega_scggm(
         mega_str, G0_str, P0_str)
     command_str_diff = "./mega_scggm %s   %i %i %i %i %s %s   %s %s %s" % (
         option_str,
-        1, q, 1, p, Y_diff_file, X_diff_file,
+        n_y, q, n_x, p, Y_diff_file, X_diff_file,
         Gammafile, Psifile, stats_diff_file)
     print(command_str_diff)
 
