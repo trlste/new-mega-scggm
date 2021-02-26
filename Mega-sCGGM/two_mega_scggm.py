@@ -23,7 +23,7 @@ def two_mega_scggm(
       (mscggm)X: input data matrix (n samples x p dimensions covariate variables)
       X:n*(2p+r)
       Y:(n*2q) with missing inputs
-      Ysum: n*q
+      
       lambdaV: regularization for V
       lambdaF: regularization for F
       lambdaGamma: regularization for Gamma
@@ -86,7 +86,8 @@ def two_mega_scggm(
     
     #n_y=n, q_prime=2q
     #n_x=n, p_prime=2p+r
-    (n_y, q_prime) = Y.shape 
+    (n_y, q_prime) = Y.shape
+    #print(Y.shape)
     (n_x, p_prime) = X.shape
 
     #2n*q
@@ -98,7 +99,7 @@ def two_mega_scggm(
     X_r_dropped=X[:,:2*p].reshape((2*n_x,-1))
     X_r_dropped_p=X_r_dropped[::2,:]
     X_r_dropped_m=X_r_dropped[1::2,:]
-    #n*r    
+    #n*r
     X_r=X[:,2*p:]
     #n*p+r
     X_sum=np.concatenate((X_r_dropped_m+X_r_dropped_p,X_r),axis=1)
@@ -107,8 +108,10 @@ def two_mega_scggm(
 
     # calculates ys and xs
     
-    #means 2n*q
+    #means 2n*mq
+    #print(Y_sum.shape)
     Y_means=np.repeat(.5*Y_sum, repeats=2, axis=0)
+    #print(Y_means.shape)
     Y_complete= np.where(np.isnan(Y),Y_means,Y)
    
     Y_p=Y_complete[::2,:]
@@ -146,6 +149,10 @@ def two_mega_scggm(
         n_y, q, n_x, p+r, Y_sum_file, X_sum_file,
         Vfile, Ffile, stats_sum_file)
     print(command_str_sum)
+    ret_sum = os.system(command_str_sum)
+    V = txt_to_sparse(Vfile)
+    F = txt_to_sparse(Ffile)
+    stats_sum = txt_to_dict(stats_sum_file)
 
     #second call to mega-scggm: Gamma and Psi, the difference term
     mega_str = "-l %i -t %i -m %i -n %i " % (
@@ -160,19 +167,14 @@ def two_mega_scggm(
         Gammafile, Psifile, stats_diff_file)
     print(command_str_diff)
 
-    #simply calls mega-scggm twice
-    ret_sum = os.system(command_str_sum)
-    ret_diff = os.system(command_str_diff)
 
-    V = txt_to_sparse(Vfile)
-    F = txt_to_sparse(Ffile)
+
+    ret_diff = os.system(command_str_diff)
     Gamma = txt_to_sparse(Gammafile)
     Psi = txt_to_sparse(Psifile)
-    stats_sum = txt_to_dict(stats_sum_file)
     stats_diff = txt_to_dict(stats_diff_file)
-    rmline = "rm %s %s %s %s %s %s %s %s" % (Yfile, Xfile, Vfile, Ffile, Gammafile, Psifile, stats_sum_file, stats_diff_file)
 
+    rmline = "rm %s %s %s %s %s %s %s %s" % (Yfile, Xfile, Vfile, Ffile, Gammafile, Psifile, stats_sum_file, stats_diff_file)
     ret = os.system(rmline)
     os.chdir(olddir)
     return (V, F, Gamma, Psi, stats_sum, stats_diff)
-

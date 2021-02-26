@@ -32,19 +32,24 @@ Theta=ssp.vstack([ssp.kron(ssp.identity(m,format="coo"),Pi),ssp.kron(np.ones((1,
 
 Sigma = ssl.inv(Lambda)
 meanY = -1 * X @ Theta @ Sigma
+'''
 try:
     import sksparse.cholmod as skc
     Lambda_factor = skc.cholesky(Lambda)
     noiseY = (Lambda_factor.solve_Lt(np.random.randn(m*q,n))).transpose()
 except:
-    noiseY = np.random.multivariate_normal(np.zeros(m*q), Sigma.todense(), size=n)
-
+'''
+noiseY = np.random.multivariate_normal(np.zeros(m*q), Sigma.todense(), size=n)
+#n * mq 4*10
 Y = meanY + noiseY
-(n_y,_)=Y.shape
-Y=Y.reshape(2*n_y,-1)
-Ysum= Y[::2,:]+Y[1::2,:]
-
-lambdaV = 0.5
+# 8*5
+(n_y, q_prime) = Y.shape
+Ynew=Y.reshape((2*n_y,-1))
+#print(Y.shape)
+Ysum= Ynew[::2,:]+Ynew[1::2,:]
+#print(Y)
+#print(Ysum)
+lambdaV=0.5
 lambdaGamma = 0.5
 lambdaF = 1.0
 lambdaPsi=1.0
@@ -88,37 +93,3 @@ plt.spy(re_Pi)
 plt.title("re_Pi")
 
 plt.show()
-
-
-
-
-'''
-plt.figure()
-plt.spy(V)
-plt.title("V")
-
-plt.figure()
-plt.spy(F)
-plt.title("F")
-
-plt.figure()
-plt.spy(Gamma)
-plt.title("Gamma")
-
-plt.figure()
-plt.spy(Psi)
-plt.title("Psi")
-
-plt.figure()
-plt.spy(stats_sum)
-plt.title("stats_diff")
-
-plt.figure()
-plt.spy(stats_sum)
-plt.title("stats_diff")
-
-plt.show()
-'''
-
-
-
