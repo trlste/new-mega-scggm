@@ -12,8 +12,8 @@ from mega_scggm import mega_scggm
 from two_mega_scggm import two_mega_scggm
 
 n = 100
-p = 100
-q = 150
+p = 50-100
+q = 100-150
 r = 10
 #diagonal matrix
 #qxq, V
@@ -23,8 +23,8 @@ V.setdiag(0.3, -1)
 #diagonal matrix
 #qxq, Gamma
 Gamma = ssp.eye(q, format="coo")
-Gamma.setdiag(0.5, 1)
-Gamma.setdiag(0.5, -1)
+Gamma.setdiag(0.3, 1)
+Gamma.setdiag(0.3, -1)
 
 #p*q check 
 p_influence = int(math.floor(p * 0.5))
@@ -54,12 +54,13 @@ diffSum= -1 * X_diff @ Psi @ Sigma_Gamma
 
 try:
     import sksparse.cholmod as skc
-    Lambda_factor = skc.cholesky(Lambda)
-    noiseSum = (Lambda_factor.solve_Lt(np.random.randn(q,n))).transpose()
-    noiseDiff = (Lambda_factor.solve_Lt(np.random.randn(q,n))).transpose()
+    V_factor = skc.cholesky(V)
+    Gamma_factor=skc.cholesky(Gamma)
+    noiseSum = (V_factor.solve_Lt(np.random.randn(q,n))).transpose()
+    noiseDiff = (Gamma_factor.solve_Lt(np.random.randn(q,n))).transpose()
 except:
-    noiseSum = np.random.multivariate_normal(np.zeros(q), Sigma.todense(), size=n)
-    noiseDiff = np.random.multivariate_normal(np.zeros(q), Sigma.todense(), size=n)
+    noiseSum = np.random.multivariate_normal(np.zeros(q), Sigma_V.todense(), size=n)
+    noiseDiff = np.random.multivariate_normal(np.zeros(q), Sigma_Gamma.todense(), size=n)
 
 Ysum = meanSum + noiseSum
 Ydiff = diffSum + noiseDiff

@@ -23,7 +23,7 @@ def two_mega_scggm(
       (mscggm)X: input data matrix (n samples x p dimensions covariate variables)
       X:n*(2p+r)
       Y:(n*2q) with missing inputs
-      
+      Ysum: n*q
       lambdaV: regularization for V
       lambdaF: regularization for F
       lambdaGamma: regularization for Gamma
@@ -90,15 +90,15 @@ def two_mega_scggm(
     (n_x, p_prime) = X.shape
 
     #2n*q
-    Y=Y.reshape(2,-1)
+    Y=Y.reshape((2*n_y,-1))
 
-    q=q_prime/2
-    p=(p_prime-r)/2
+    q=q_prime//2
+    p=(p_prime-r)//2
     #n*2p->2n*p
-    X_r_dropped=X[:,:2*p].reshape(2*n_x,-1)
+    X_r_dropped=X[:,:2*p].reshape((2*n_x,-1))
     X_r_dropped_p=X_r_dropped[::2,:]
     X_r_dropped_m=X_r_dropped[1::2,:]
-    #n*r
+    #n*r    
     X_r=X[:,2*p:]
     #n*p+r
     X_sum=np.concatenate((X_r_dropped_m+X_r_dropped_p,X_r),axis=1)
@@ -111,12 +111,9 @@ def two_mega_scggm(
     Y_means=np.repeat(.5*Y_sum, repeats=2, axis=0)
     Y_complete= np.where(np.isnan(Y),Y_means,Y)
    
-    Y_p=Y[::2,:]
-    Y_m=Y[1::2,:]
+    Y_p=Y_complete[::2,:]
+    Y_m=Y_complete[1::2,:]
     Y_diff=np.subtract(Y_p,Y_m)
-
-   
-   
 
     Y_sum_file = "Y_sum-dummy-%i.txt" % (dummy)
     X_sum_file = "X_sum-dummy-%i.txt" % (dummy)
@@ -131,10 +128,7 @@ def two_mega_scggm(
 
     stats_sum_file = "stats_sum-dummy-%i.txt" % (dummy)
     stats_diff_file = "stats_diff-dummy-%i.txt" % (dummy)
-    
-   
-
-
+  
     np.savetxt(Y_sum_file, Y_sum, fmt="%.10f", delimiter=" ")
     np.savetxt(X_sum_file, X_sum, fmt="%.10f", delimiter=" ")
     np.savetxt(Y_diff_file, Y_diff, fmt="%.10f", delimiter=" ")
