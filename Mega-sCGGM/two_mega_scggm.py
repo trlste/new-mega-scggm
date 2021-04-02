@@ -1,4 +1,4 @@
-#!/bin/python
+#!/bin/pythoni
 
 import os
 import numpy as np
@@ -12,7 +12,7 @@ from txt_to_dict import txt_to_dict
 from sparse_to_txt import sparse_to_txt
 
 def two_mega_scggm(
-        Y, X, Y_sum, lambdaV, lambdaF, lambdaGamma, lambdaPsi, r,
+        Y, X, X_sum, lambdaV, lambdaF, lambdaGamma, lambdaPsi,
         verbose=False, max_iters=50, sigma=1e-4, tol=1e-2,
         num_blocks_V=-1, num_blocks_F=-1, num_blocks_Gamma=-1,
         num_blocks_Psi=-1, memory_usage=32000,
@@ -21,14 +21,13 @@ def two_mega_scggm(
     Args:
       (mscggm)Y: output data matrix (n samples x q dimensions target variables)
       (mscggm)X: input data matrix (n samples x p dimensions covariate variables)
-      X:n*(2p+r)
-      Y:(n*2q) with missing inputs
+      X:n*(2p)
+      Y:n*2q
       
       lambdaV: regularization for V
       lambdaF: regularization for F
       lambdaGamma: regularization for Gamma
       lambdaPsi: regularization for Psi
-      r: the number of group-level inputs
 
     Optional args:
       verbose: print information or notnew
@@ -43,13 +42,13 @@ def two_mega_scggm(
       threads: the maximum number of threads
       refit: refit (Lambda0, Theta0) without adding any edges
       V0: q x q scipy.sparse matrix to initialize V
-      F0: p+r x q scipy.sparse matrix to initialize F
+      F0: p x q scipy.sparse matrix to initialize F
       Gamma0: q x q scipy.sparse matrix to initialize Gamma
       Psi0: p x q scipy.sparse matrix to initialize Psi
 
     Returns:
         V: q x q sparse matrix
-        F: p+r x q sparse matrix
+        F: p x q sparse matrix
         Gamma: q x q sparse matrix
         Psi: p x q sparse matrix
         stats_sum: dict of logging results (of the summation term)
@@ -83,40 +82,37 @@ def two_mega_scggm(
         sparse_to_txt(P0file, Psi0)
         P0_str = "-T \"%s\" " % (P0file)
 
-    
     #n_y=n, q_prime=2q
     #n_x=n, p_prime=2p+r
-    (n_y, q_prime) = Y.shape
+    (n_y, q_p) = Y.shape
     #print(Y.shape)
-    (n_x, p_prime) = X.shape
+    (n_x, p_p) = X.shape
+    
+    Y=Y.reshape((2*n_y,-1))
+    X=X.reshape((2*n_x,-1))
+    q=q_p//2
+    p=p_p//2
 
     #2n*q
-    Y=Y.reshape((2*n_y,-1))
-
-    q=q_prime//2
-    p=(p_prime-r)//2
-    #n*2p->2n*p
-    X_r_dropped=X[:,:2*p].reshape((2*n_x,-1))
-    X_r_dropped_p=X_r_dropped[::2,:]
-    X_r_dropped_m=X_r_dropped[1::2,:]
+        #n*2p->2n*p
     #n*r
-    X_r=X[:,2*p:]
     #n*p+r
-    X_sum=np.concatenate((X_r_dropped_m+X_r_dropped_p,X_r),axis=1)
     #n*p
-    X_diff=np.subtract(X_r_dropped_p, X_r_dropped_m)
-
+    Y_p=Y[::2,:]
+    Y_m=Y[1::2,:]
+    Y_diff=np.subtract(Y_p,Y_m)
+    Y_sum=Y_p+Y_m
     # calculates ys and xs
     
     #means 2n*mq
     #print(Y_sum.shape)
-    Y_means=np.repeat(.5*Y_sum, repeats=2, axis=0)
+    #X_means=np.repeat(.5*X_sum, repeats=2, axis=0)
     #print(Y_means.shape)
-    Y_complete= np.where(np.isnan(Y),Y_means,Y)
-   
-    Y_p=Y_complete[::2,:]
-    Y_m=Y_complete[1::2,:]
-    Y_diff=np.subtract(Y_p,Y_m)
+    #X_complete= np.where(np.isnan(X),X_means,X)
+    X_complete=X
+    X_p=X_complete[::2,:]
+    X_m=X_complete[1::2,:]
+    X_diff=np.subtract(X_p,X_m)
 
     Y_sum_file = "Y_sum-dummy-%i.txt" % (dummy)
     X_sum_file = "X_sum-dummy-%i.txt" % (dummy)
@@ -146,7 +142,7 @@ def two_mega_scggm(
         mega_str, V0_str, F0_str)
     command_str_sum = "./mega_scggm %s   %i %i %i %i %s %s   %s %s %s" % (
         option_str,
-        n_y, q, n_x, p+r, Y_sum_file, X_sum_file,
+        n_y, q, n_x, p, Y_sum_file, X_sum_file,
         Vfile, Ffile, stats_sum_file)
     print(command_str_sum)
     ret_sum = os.system(command_str_sum)
@@ -174,7 +170,7 @@ def two_mega_scggm(
     Psi = txt_to_sparse(Psifile)
     stats_diff = txt_to_dict(stats_diff_file)
 
-    rmline = "rm %s %s %s %s %s %s %s %s" % (Yfile, Xfile, Vfile, Ffile, Gammafile, Psifile, stats_sum_file, stats_diff_file)
+    rmline = "rm %s %s %s %s %s %s %s %s %s %s" % (Y_sum_file, X_sum_file, Y_diff_file, X_diff_file, Vfile, Ffile, Gammafile, Psifile, stats_sum_file, stats_diff_file)
     ret = os.system(rmline)
     os.chdir(olddir)
     return (V, F, Gamma, Psi, stats_sum, stats_diff)
